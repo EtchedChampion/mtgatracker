@@ -77,12 +77,16 @@ def dispatch_jsonrpc_method(blob):
 
 @util.debug_log_trace
 def dispatch_gre_to_client(blob):
+
     client_messages = blob["greToClientEvent"]['greToClientMessages']
     dont_care_types = ["GREMessageType_UIMessage"]
+    action_required_types = ["GREMessageType_PayCostsReq", "GREMessageType_ActionsAvailableReq", "GREMessageType_PromptReq"]
     for message in client_messages:
         message_type = message["type"]
         if message_type in dont_care_types:
             pass
+        if message_type in action_required_types:
+            print("do something")
         elif message_type in ["GREMessageType_GameStateMessage", "GREMessageType_QueuedGameStateMessage"]:
             game_state_message = message['gameStateMessage']
             try:

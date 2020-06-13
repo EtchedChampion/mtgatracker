@@ -219,7 +219,7 @@ class Game(object):
         # so we can send the event log to inspector, as well
         self.events = []
 
-        self.hero = hero
+        self.hero: Player = hero
         assert isinstance(self.hero, Player)
         self.opponent = opponent
         assert isinstance(self.opponent, Player)

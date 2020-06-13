@@ -178,8 +178,10 @@ def json_blob_reader_task(in_queue, out_queue):
         try:
             hero_library_hash = -1
             opponent_hand_hash = -1
+            hero_hand_hash = -1
             if mtga_watch_app.game:
                 hero_library_hash = hash(mtga_watch_app.game.hero.library)
+                hero_hand_hash = hash(mtga_watch_app.game.hero.hand)
                 opponent_hand_hash = hash(mtga_watch_app.game.opponent.hand)
             check_for_client_id(json_recieved)
             dispatchers.dispatch_blob(json_recieved)
@@ -190,8 +192,11 @@ def json_blob_reader_task(in_queue, out_queue):
             opponent_hand_hash_post = -1
             if mtga_watch_app.game:
                 hero_library_hash_post = hash(mtga_watch_app.game.hero.library)
+                hero_hand_hash_post = hash(mtga_watch_app.game.hero.hand)
                 opponent_hand_hash_post = hash(mtga_watch_app.game.opponent.hand)
-                if hero_library_hash != hero_library_hash_post or opponent_hand_hash != opponent_hand_hash_post:
+                if hero_library_hash != hero_library_hash_post \
+                        or opponent_hand_hash != opponent_hand_hash_post\
+                        or hero_hand_hash != hero_hand_hash_post:
                     game_state_change_queue.put(mtga_watch_app.game.game_state())  # TODO: BREAKPOINT HERE
                 if mtga_watch_app.game.final:
                     game_state_change_queue.put({"match_complete": True, "gameID": mtga_watch_app.game.match_id})

@@ -1,15 +1,14 @@
 import json
-import threading
-import os
 import logging.handlers
+import os
 import sys
-import requests
+import threading
 
 import util
-from app.queues import general_output_queue
 from app.models.set import Deck
 from app.queues import decklist_change_queue
-from util import client_version
+from app.queues import general_output_queue
+
 try:
     from app._secrets import API_URL, hash_json_object
 except ImportError:
