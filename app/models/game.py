@@ -2,6 +2,7 @@ import datetime
 import sys
 
 import app.models.set as mset
+from app.models.action import ActionType
 from app.mtga_app import mtga_watch_app
 from app.models.card import GameCard
 from app.models.set import Deck
@@ -248,6 +249,14 @@ class Game(object):
         self.current_phase = "Game_Start"
         self.opponent_rank = opponent_rank
         self.event_id = event_id
+
+        # list of turns in which the hero played a land
+        self.turns_played_land = []
+
+        # last hovered card
+        self.last_hovered_iid = None
+
+        self.last_action_type: ActionType = None
 
     def game_state(self):
         hero_chess_time_total, oppo_chess_time_total = self.calculate_chess_timer_total()

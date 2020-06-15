@@ -42,19 +42,16 @@ def action_task(in_queue, out_queue):
 
         if last_blob == json_received:
             continue  # don't double fire
-        print('action required')
         print(json_received)
 
         actions = action_decider.what_to_do(json_received["message_type"], json_received["action_type"])
-
-        print('number of actions to do: {}'.format(len(actions)))
         for action in actions:
             print('waiting before task')
             # wait to make sure the UI is ready with all animations and stuff
-            time.sleep(4)
+            time.sleep(2)
             action.perform()
 
-
+# goes from a string, to a list of lines, to json and sends it trough to the json task
 def block_watch_task(in_queue, out_queue):
     BLOCK_SEQ = 0
     while all_die_queue.empty():

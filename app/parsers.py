@@ -1,17 +1,15 @@
+import datetime
 import json
 import pprint
-import datetime
-import time
 
+from mtga import all_mtga_cards
+
+import app.mtga_app
 import util
-from app import action_decider
-from app.models.action import Action, ActionType
+from app.models.card import Ability
 from app.models.game import Game, Match, Player
 from app.models.set import Zone
-import app.mtga_app
 from app.queues import game_state_change_queue, general_output_queue, action_queue
-from app.models.card import Ability
-from mtga import all_mtga_cards
 
 
 @util.debug_log_trace
@@ -262,6 +260,7 @@ def parse_action_required_message(message):
             "message_type": message["type"],
             "action_type": "Action"
         })
+
 
 @util.debug_log_trace
 def parse_game_state_message(message, timestamp=None):
@@ -829,3 +828,17 @@ def parse_match_playing(blob):
         mtga_app.mtga_watch_app.game = Game(match_id, hero, opponent, shared_battlefield, shared_exile, shared_limbo,
                                             shared_stack, event_id, opponent_rank)
         mtga_app.mtga_watch_app.game.events.append(queue_obj["game_history_event"])
+
+
+def parse_hover(blob):
+    blob = blob["payload"]["uiMessage"]["onHover"]
+    # check if there is anything in the onHover, if not we can continue
+    # if there is no hover, we don't need to do anything
+    if "objectId" not in blob:
+        return
+    import app.mtga_app as mtga_app
+    with mtga_app.mtga_watch_app.game_lock:
+        mtga_app.mtga_watch_app.game.last_hovered_iid = blob["objectId"]
+        # print("last hover was on id: {} which is {}".format(mtga_app.mtga_watch_app.game.last_hovered_iid,
+        #                                                     mtga_app.mtga_watch_app.game.find_card_by_iid(
+        #                                                         mtga_app.mtga_watch_app.game.last_hovered_iid)))

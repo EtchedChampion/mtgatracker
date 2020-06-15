@@ -52,6 +52,10 @@ def dispatch_blob(blob):
     elif "block_title" in blob and blob["block_title"] == "Event.MatchCreated":
         parsers.parse_match_created(blob)
 
+    # parse on hover event to check what we are looking at, at this moment
+    elif "block_title" in blob and blob["block_title"] == "ClientToMatchServiceMessageType_ClientToGREUIMessage":
+        parsers.parse_hover(blob)
+
 
 # MID-LEVER DISPATCHERS: first depth level of a blob
 @util.debug_log_trace
