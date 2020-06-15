@@ -1,7 +1,11 @@
 import json
 import pprint
 import datetime
+import time
+
 import util
+from app import action_decider
+from app.models.action import Action, ActionType
 from app.models.game import Game, Match, Player
 from app.models.set import Zone
 import app.mtga_app
@@ -73,11 +77,14 @@ def parse_draft_status(blob):
         for card in blob["DraftPack"]:
             card_obj = util.all_mtga_cards.find_one(card).to_serializable()
             if card in mtga_app.mtga_watch_app.collection:
-                card_obj["count"] = min(mtga_app.mtga_watch_app.collection[card] + picked_cards_this_draft.count(card), 4)
+                card_obj["count"] = min(mtga_app.mtga_watch_app.collection[card] + picked_cards_this_draft.count(card),
+                                        4)
             else:
                 card_obj["count"] = min(0 + picked_cards_this_draft.count(card), 4)
             collection_count.append(card_obj)
-        collection_count.sort(key=lambda x: (-1 * util.rank_rarity(x["rarity"]), util.rank_colors(x["color_identity"]), util.rank_cost(x["cost"]), x["pretty_name"]))
+        collection_count.sort(key=lambda x: (
+            -1 * util.rank_rarity(x["rarity"]), util.rank_colors(x["color_identity"]), util.rank_cost(x["cost"]),
+            x["pretty_name"]))
         general_output_queue.put({"draft_collection_count": collection_count})
     else:
         blob["DraftPack"] = []
@@ -106,7 +113,8 @@ def parse_draft_status(blob):
         app.mtga_app.mtga_logger.info("{}{}".format(util.ld(), report))
         pass_through("draftPick", report["playerID"], report)
     if pack:
-        draft_history[draftId] = {'picks': picks, 'pack': pack, 'picknum': blob["pickNumber"], 'packnum': blob["packNumber"]}
+        draft_history[draftId] = {'picks': picks, 'pack': pack, 'picknum': blob["pickNumber"],
+                                  'packnum': blob["packNumber"]}
     else:
         draft_history[draftId] = None
 
@@ -236,6 +244,23 @@ def build_event_texts_from_iid_or_grpid(iid, game, grpid=None):
             card_or_ability = all_mtga_cards.find_one(iid)
         return build_card_event_texts(card_or_ability, game)
 
+
+def parse_action_required_message(message, timestamp=None):
+    # wait 1 second to make sure all other messages are already parsed
+    # time.sleep(1)
+
+    import app.mtga_app as mtga_app
+    with mtga_app.mtga_watch_app.game_lock:
+        actions = action_decider.what_to_do(message)
+
+        print('{} number of actions to do'.format(len(actions)))
+        # perform all actions in order
+        for action in actions:
+            # wait between the actions
+            time.sleep(1)
+            action.perform()
+
+
 @util.debug_log_trace
 def parse_game_state_message(message, timestamp=None):
     # DOM: ok
@@ -245,7 +270,8 @@ def parse_game_state_message(message, timestamp=None):
             if "turnNumber" in message["turnInfo"].keys():
                 player = app.mtga_app.mtga_watch_app.game.get_player_in_seat(message["turnInfo"]["activePlayer"])
                 if "decisionPlayer" in message["turnInfo"].keys():
-                    decisionPlayer = app.mtga_app.mtga_watch_app.game.get_player_in_seat(message["turnInfo"]["decisionPlayer"])
+                    decisionPlayer = app.mtga_app.mtga_watch_app.game.get_player_in_seat(
+                        message["turnInfo"]["decisionPlayer"])
                 else:
                     decisionPlayer = app.mtga_app.mtga_watch_app.game.last_decision_player
                 if timestamp:
@@ -268,7 +294,8 @@ def parse_game_state_message(message, timestamp=None):
                               "diff": log_time_diff,
                               "countsAgainst": app.mtga_app.mtga_watch_app.game.last_decision_player}
                     app.mtga_app.mtga_watch_app.game.chess_timer.append(ct_obj)
-                    general_output_queue.put({"decisionPlayerChange": True, "heroIsDeciding": decisionPlayer == app.mtga_app.mtga_watch_app.game.hero})
+                    general_output_queue.put({"decisionPlayerChange": True,
+                                              "heroIsDeciding": decisionPlayer == app.mtga_app.mtga_watch_app.game.hero})
                     app.mtga_app.mtga_watch_app.game.last_decision_player = decisionPlayer
                 app.mtga_app.mtga_watch_app.game.turn_number = message["turnInfo"]["turnNumber"]
                 other_player_seat = 2 if message["turnInfo"]["activePlayer"] == 1 else 1
@@ -357,16 +384,21 @@ def parse_game_state_message(message, timestamp=None):
                             continue
                         new_card_already_exists = mtga_app.mtga_watch_app.game.find_card_by_iid(new_id)
                         if new_card_already_exists:  # just wipe the old card, the new card is already there
-                            assert new_card_already_exists.mtga_id == card_with_iid.mtga_id or -1 in [new_card_already_exists.mtga_id, card_with_iid.mtga_id], "{} / {}".format(new_card_already_exists.mtga_id , card_with_iid.mtga_id)
+                            assert new_card_already_exists.mtga_id == card_with_iid.mtga_id or -1 in [
+                                new_card_already_exists.mtga_id, card_with_iid.mtga_id], "{} / {}".format(
+                                new_card_already_exists.mtga_id, card_with_iid.mtga_id)
                             card_with_iid.mtga_id = -1
                         else:
                             card_with_iid.previous_iids.append(original_id)
                             card_with_iid.game_id = new_id
                     except:
-                        app.mtga_app.mtga_logger.error("{}Exception @ count {}".format(util.ld(True), app.mtga_app.mtga_watch_app.error_count))
-                        app.mtga_app.mtga_logger.error("{}parsers:parse_game_state_message - error parsing annotation:".format(util.ld(True)))
+                        app.mtga_app.mtga_logger.error(
+                            "{}Exception @ count {}".format(util.ld(True), app.mtga_app.mtga_watch_app.error_count))
+                        app.mtga_app.mtga_logger.error(
+                            "{}parsers:parse_game_state_message - error parsing annotation:".format(util.ld(True)))
                         app.mtga_app.mtga_logger.error(pprint.pformat(annotation))
-                        app.mtga_app.mtga_watch_app.send_error("Exception during parse AnnotationType_ObjectIdChanged. Check log for more details")
+                        app.mtga_app.mtga_watch_app.send_error(
+                            "Exception during parse AnnotationType_ObjectIdChanged. Check log for more details")
                 if annotation_type == "AnnotationType_TargetSpec":
                     affector_id = annotation["affectorId"]
                     affected_ids = annotation["affectedIds"]
@@ -418,16 +450,20 @@ def parse_game_state_message(message, timestamp=None):
                             for detail in details:
                                 if detail["key"] == "grpid":
                                     grpid = detail["valueInt32"][0]
-                            resolved_texts = build_event_texts_from_iid_or_grpid(affector_id, mtga_app.mtga_watch_app.game, grpid)
+                            resolved_texts = build_event_texts_from_iid_or_grpid(affector_id,
+                                                                                 mtga_app.mtga_watch_app.game, grpid)
                             event_texts = [*resolved_texts, " resolves"]
                             queue_obj = {"game_history_event": event_texts}
                             mtga_app.mtga_watch_app.game.events.append(queue_obj["game_history_event"])
                             general_output_queue.put(queue_obj)
                     except:
-                        app.mtga_app.mtga_logger.error("{}Exception @ count {}".format(util.ld(True), app.mtga_app.mtga_watch_app.error_count))
-                        app.mtga_app.mtga_logger.error("{}parsers:parse_game_state_message - error parsing annotation:".format(util.ld(True)))
+                        app.mtga_app.mtga_logger.error(
+                            "{}Exception @ count {}".format(util.ld(True), app.mtga_app.mtga_watch_app.error_count))
+                        app.mtga_app.mtga_logger.error(
+                            "{}parsers:parse_game_state_message - error parsing annotation:".format(util.ld(True)))
                         app.mtga_app.mtga_logger.error(pprint.pformat(annotation))
-                        app.mtga_app.mtga_watch_app.send_error("Exception during parse AnnotationType_ResolutionComplete. Check log for more details")
+                        app.mtga_app.mtga_watch_app.send_error(
+                            "Exception during parse AnnotationType_ResolutionComplete. Check log for more details")
 
         if 'gameObjects' in message.keys():
             game_objects = message['gameObjects']
@@ -455,7 +491,8 @@ def parse_game_state_message(message, timestamp=None):
                             source_instance_id = object['parentId']
                             source_grp_id = object['objectSourceGrpId']
                             ability_name = all_mtga_cards.find_one(card_id)
-                            ability = Ability(ability_name, source_grp_id, source_instance_id, card_id, owner, instance_id)
+                            ability = Ability(ability_name, source_grp_id, source_instance_id, card_id, owner,
+                                              instance_id)
                             zone.abilities.append(ability)
                 if "attackState" in object and object["attackState"] == "AttackState_Attacking":
                     card = mtga_app.mtga_watch_app.game.find_card_by_iid(instance_id)
@@ -477,7 +514,8 @@ def parse_game_state_message(message, timestamp=None):
                         if limit_tuple not in mtga_app.mtga_watch_app.game.recorded_targetspecs:
                             mtga_app.mtga_watch_app.game.recorded_targetspecs.append(limit_tuple)
                             attacker_texts = build_event_texts_from_iid_or_grpid(attacker, mtga_app.mtga_watch_app.game)
-                            blocker_texts = build_event_texts_from_iid_or_grpid(instance_id, mtga_app.mtga_watch_app.game)
+                            blocker_texts = build_event_texts_from_iid_or_grpid(instance_id,
+                                                                                mtga_app.mtga_watch_app.game)
 
                             event_texts = [*blocker_texts, " blocks ", *attacker_texts]
                             queue_obj = {"game_history_event": event_texts}
@@ -491,7 +529,8 @@ def parse_game_state_message(message, timestamp=None):
                     if removable:
                         cards_to_remove_from_zones[zone["zoneId"]] = removable
                 except:
-                    app.mtga_app.mtga_logger.error("{}Exception @ count {}".format(util.ld(True), app.mtga_app.mtga_watch_app.error_count))
+                    app.mtga_app.mtga_logger.error(
+                        "{}Exception @ count {}".format(util.ld(True), app.mtga_app.mtga_watch_app.error_count))
                     app.mtga_app.mtga_logger.error("{}error parsing zone:".format(util.ld(True)))
                     app.mtga_app.mtga_logger.error(pprint.pformat(zone))
                     app.mtga_app.mtga_watch_app.send_error("Exception during parse zone. Check log for more details")
@@ -514,7 +553,8 @@ def parse_game_state_message(message, timestamp=None):
                     player_is_hero = mtga_app.mtga_watch_app.game.hero == player_obj
                     player_life_text_type = "{}".format("hero" if player_is_hero else "opponent")
                     player_life_text = build_event_text(player_obj.player_name, player_life_text_type)
-                    event_texts = [player_life_text, "'s life total changed ", "{} -> {}".format(player_obj.current_life_total, life_total)]
+                    event_texts = [player_life_text, "'s life total changed ",
+                                   "{} -> {}".format(player_obj.current_life_total, life_total)]
                     queue_obj = {"game_history_event": event_texts}
                     mtga_app.mtga_watch_app.game.events.append(queue_obj["game_history_event"])
                     general_output_queue.put(queue_obj)
@@ -545,7 +585,8 @@ def parse_game_state_message(message, timestamp=None):
                     if affector_id == 0:
                         affector_id = card.owner_seat_id
                     player_texts = build_event_texts_from_iid_or_grpid(affector_id, mtga_app.mtga_watch_app.game)
-                    annotation_texts = build_event_texts_from_iid_or_grpid(affected_ids[0], mtga_app.mtga_watch_app.game)
+                    annotation_texts = build_event_texts_from_iid_or_grpid(affected_ids[0],
+                                                                           mtga_app.mtga_watch_app.game)
 
                     if category == "PlayLand":
                         event_texts = [*player_texts, " plays ", *annotation_texts]
@@ -555,7 +596,8 @@ def parse_game_state_message(message, timestamp=None):
                     elif category == "Draw":
                         if affector_id > 2:
                             owner = card.owner_seat_id
-                            player_texts.extend([": ", *build_event_texts_from_iid_or_grpid(owner, mtga_app.mtga_watch_app.game)])
+                            player_texts.extend(
+                                [": ", *build_event_texts_from_iid_or_grpid(owner, mtga_app.mtga_watch_app.game)])
                         if card.pretty_name == "unknown":
                             event_texts = [*player_texts, " draws"]
                         else:
@@ -593,6 +635,7 @@ def parse_game_state_message(message, timestamp=None):
                         mtga_app.mtga_watch_app.game.events.append(queue_obj["game_history_event"])
                         general_output_queue.put(queue_obj)
 
+
 @util.debug_log_trace
 def parse_zone(zone_blob):
     import app.mtga_app as mtga_app
@@ -627,7 +670,7 @@ def parse_zone(zone_blob):
             # TODO: logging
             # mtga_logger.info("adding {} to {}".format(instance_id, zone))
             if owner_seat:
-                player.put_instance_id_in_zone(instance_id, owner_seat,  zone)
+                player.put_instance_id_in_zone(instance_id, owner_seat, zone)
         cards_to_remove_from_zone = []
         for card in zone.cards:
             if card.game_id not in zone_blob['objectInstanceIds']:
@@ -745,7 +788,7 @@ def parse_match_playing(blob):
             for player in players:
                 player_seat = player["systemSeatId"]
                 temp_players[player_seat]["deck"] = util.card_ids_to_card_list(player["deckCards"])
-    for player_idx in [1,2]:
+    for player_idx in [1, 2]:
         if "deck" not in temp_players[player_idx]:
             temp_players[player_idx]["deck"] = []
     # set up shared zones
@@ -765,7 +808,8 @@ def parse_match_playing(blob):
             hero = player2
             opponent = player1
         else:
-            raise Exception("Don't know who hero is: player_id: {} / player 1: {} / player 2: {}".format(mtga_app.mtga_watch_app.player_id, player1.player_id, player2.player_id))
+            raise Exception("Don't know who hero is: player_id: {} / player 1: {} / player 2: {}".format(
+                mtga_app.mtga_watch_app.player_id, player1.player_id, player2.player_id))
         hero.is_hero = True
         if mtga_app.mtga_watch_app.intend_to_join_game_with:
             hero.original_deck = mtga_app.mtga_watch_app.intend_to_join_game_with

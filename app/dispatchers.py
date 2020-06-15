@@ -80,13 +80,17 @@ def dispatch_gre_to_client(blob):
 
     client_messages = blob["greToClientEvent"]['greToClientMessages']
     dont_care_types = ["GREMessageType_UIMessage"]
-    action_required_types = ["GREMessageType_PayCostsReq", "GREMessageType_ActionsAvailableReq", "GREMessageType_PromptReq"]
+    action_required_types = ["GREMessageType_PayCostsReq",
+                             "GREMessageType_ActionsAvailableReq",
+                             "GREMessageType_PromptReq",
+                             "GREMessageType_DeclareAttackersReq",
+                             "GREMessageType_DeclareBlockersReq"]
     for message in client_messages:
         message_type = message["type"]
         if message_type in dont_care_types:
             pass
         if message_type in action_required_types:
-            print("do something")
+            parsers.parse_action_required_message(message, blob["timestamp"] if "timestamp" in blob.keys() else None)
         elif message_type in ["GREMessageType_GameStateMessage", "GREMessageType_QueuedGameStateMessage"]:
             game_state_message = message['gameStateMessage']
             try:

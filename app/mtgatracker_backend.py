@@ -36,11 +36,6 @@ if __name__ == "__main__":
                                           args=(queues.json_blob_queue, queues.json_blob_queue,))
     json_watch_process.start()
 
-    print("starting action task server")
-    json_watch_process = threading.Thread(target=tasks.json_blob_reader_task,
-                                          args=(queues.json_blob_queue, queues.json_blob_queue,))
-    json_watch_process.start()
-
     current_block = ""
 
     count = 0

@@ -118,7 +118,7 @@ def block_watch_task(in_queue, out_queue):
             }
             """
             block_title = block_lines[1].strip().split(" ")[-2]  # skip trailing {
-            json_str = "{" + "\n".join(block_lines[2:])          # cut the first two lines and manually add { back in
+            json_str = "{" + "\n".join(block_lines[2:])  # cut the first two lines and manually add { back in
         if json_str:
             try:
                 blob = json.loads(json_str)
@@ -131,7 +131,9 @@ def block_watch_task(in_queue, out_queue):
                     blob["log_line"] = log_line
                 if timestamp:
                     blob["timestamp"] = timestamp
-                mtga_logger.info("{}success parsing blob: {}({}) / log_line {}".format(util.ld(), block_title, block_title_seq, log_line))
+                mtga_logger.info(
+                    "{}success parsing blob: {}({}) / log_line {}".format(util.ld(), block_title, block_title_seq,
+                                                                          log_line))
                 if request_or_response:
                     blob["request_or_response"] = request_or_response
                 if block_title:
@@ -144,7 +146,6 @@ def block_watch_task(in_queue, out_queue):
 
 
 def json_blob_reader_task(in_queue, out_queue):
-
     def check_for_client_id(blob):
         if "authenticateResponse" in blob:
             if "clientId" in blob["authenticateResponse"]:
@@ -172,7 +173,8 @@ def json_blob_reader_task(in_queue, out_queue):
         # check for decklist changes
         if mtga_watch_app.player_decks != last_decklist:
             last_decklist = mtga_watch_app.player_decks
-            decklist_change_queue.put({k: v.to_serializable(transform_to_counted=True) for k, v in last_decklist.items()})
+            decklist_change_queue.put(
+                {k: v.to_serializable(transform_to_counted=True) for k, v in last_decklist.items()})
 
         # check for gamestate changes
         try:
@@ -195,7 +197,7 @@ def json_blob_reader_task(in_queue, out_queue):
                 hero_hand_hash_post = hash(mtga_watch_app.game.hero.hand)
                 opponent_hand_hash_post = hash(mtga_watch_app.game.opponent.hand)
                 if hero_library_hash != hero_library_hash_post \
-                        or opponent_hand_hash != opponent_hand_hash_post\
+                        or opponent_hand_hash != opponent_hand_hash_post \
                         or hero_hand_hash != hero_hand_hash_post:
                     game_state_change_queue.put(mtga_watch_app.game.game_state())  # TODO: BREAKPOINT HERE
                 if mtga_watch_app.game.final:
@@ -213,6 +215,3 @@ def json_blob_reader_task(in_queue, out_queue):
                 return
 
         last_blob = json_recieved
-
-
-
