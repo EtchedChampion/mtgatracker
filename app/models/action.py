@@ -24,18 +24,22 @@ class Action:
             pyautogui.click(self.position[0], self.position[1])
 
         if self.action_type == ActionType.FORCE_REFRESH:
-            pyautogui.moveTo(1046, 1019, duration=0.1)
-            pyautogui.moveTo(950, 1000, duration=0.2)
-            pyautogui.moveTo(500, 1019, duration=0.1)
-            pyautogui.moveTo(380, 1050, duration=0.3)
+            # slide trought the hand cards
+            pyautogui.moveTo(360, 1040, duration=0.1)
+            pyautogui.moveTo(800, 1019, duration=0.1)
+            pyautogui.moveTo(920, 1050, duration=0.3)
+            pyautogui.moveTo(1283, 1002, duration=0.1)
+            # move to the middle of the screen
+            pyautogui.moveTo(800, 400, duration=0.2)
 
     def __str__(self):
         if self.action_type == ActionType.BUTTON:
             return 'pressing {}'.format(self.button)
 
         if self.action_type == ActionType.CLICK:
-            print('clicking on location {}'.format(self.position))
+            return 'clicking on location {}'.format(self.position)
 
         if self.action_type == ActionType.FORCE_REFRESH:
-            print('just moving around')
-        return 'pressing {}'.format(self.button)
+            return 'just moving around'
+
+        return 'no known action'

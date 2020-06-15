@@ -239,6 +239,7 @@ class Game(object):
         self.last_log_timestamp = None
         self.last_measured_timestamp = None
         self.last_decision_player = None
+        self.last_prompt_shown = None
 
         self.chess_timer = []
 
@@ -287,7 +288,7 @@ class Game(object):
                 return None, zone
         return None, None
 
-    def get_player_in_seat(self, seat_id):
+    def get_player_in_seat(self, seat_id) -> Player:
         from app.mtga_app import mtga_logger
         if self.hero.seat == seat_id:
             return self.hero

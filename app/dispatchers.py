@@ -2,7 +2,9 @@ import app.parsers as parsers
 import app.mtga_app
 import util
 
+
 # HIGHEST LEVEL DISPATCHERS: any json blob
+from app.queues import action_queue
 
 
 @util.debug_log_trace
@@ -77,29 +79,40 @@ def dispatch_jsonrpc_method(blob):
 
 @util.debug_log_trace
 def dispatch_gre_to_client(blob):
-
     client_messages = blob["greToClientEvent"]['greToClientMessages']
     dont_care_types = ["GREMessageType_UIMessage"]
+
     action_required_types = ["GREMessageType_PayCostsReq",
                              "GREMessageType_ActionsAvailableReq",
-                             "GREMessageType_PromptReq",
                              "GREMessageType_DeclareAttackersReq",
-                             "GREMessageType_DeclareBlockersReq"]
+                             "GREMessageType_DeclareBlockersReq",
+                             "GREMessageType_SelectNReq"]
+
+    prompt_action_required_types = ["GREMessageType_PromptReq"]
+
+    doing_action = False
+
     for message in client_messages:
         message_type = message["type"]
         if message_type in dont_care_types:
             pass
-        if message_type in action_required_types:
-            parsers.parse_action_required_message(message, blob["timestamp"] if "timestamp" in blob.keys() else None)
+        elif message_type in action_required_types:
+            doing_action = True
+            parsers.parse_action_required_message(message)
+        elif message_type in prompt_action_required_types:
+            doing_action = True
+            parsers.parse_prompt_action_required(message)
         elif message_type in ["GREMessageType_GameStateMessage", "GREMessageType_QueuedGameStateMessage"]:
             game_state_message = message['gameStateMessage']
             try:
-                parsers.parse_game_state_message(game_state_message, blob["timestamp"] if "timestamp" in blob.keys() else None)
+                parsers.parse_game_state_message(game_state_message,
+                                                 blob["timestamp"] if "timestamp" in blob.keys() else None)
             except:
                 import traceback
                 exc = traceback.format_exc()
                 stack = traceback.format_stack()
-                app.mtga_app.mtga_logger.error("{}Exception @ count {}".format(util.ld(True), app.mtga_app.mtga_watch_app.error_count))
+                app.mtga_app.mtga_logger.error(
+                    "{}Exception @ count {}".format(util.ld(True), app.mtga_app.mtga_watch_app.error_count))
                 app.mtga_app.mtga_logger.error(exc)
                 app.mtga_app.mtga_logger.error(stack)
                 app.mtga_app.mtga_watch_app.send_error("Exception during parse game state. Check log for more details")
@@ -116,6 +129,12 @@ def dispatch_gre_to_client(blob):
                 app.mtga_app.mtga_logger.error(stack)
                 app.mtga_app.mtga_watch_app.send_error("Exception during parse game state. Check log for more details")
 
+    # if no action is done, put a hover action on the que to trigger new messages if we are stuck
+    if not doing_action:
+        action_queue.put({
+            "message_type": None,
+            "action_type": "Hover"
+        })
 
 @util.debug_log_trace
 def dispatch_client_to_gre(blob):
@@ -123,10 +142,14 @@ def dispatch_client_to_gre(blob):
     client_message = blob['clientToGreMessage']
     message_type = client_message['type']
     dont_care_types = ["ClientMessageType_UIMessage"]
-    unknown_types = ["ClientMessageType_PerformActionResp", "ClientMessageType_DeclareAttackersResp"
-                     "ClientMessageType_DeclareBlockersResp", "ClientMessageType_SetSettingsReq",
-                     "ClientMessageType_SelectNResp", "ClientMessageType_SelectTargetsResp",
-                     "ClientMessageType_SubmitTargetsReq", "ClientMessageType_SubmitAttackersReq",
+    unknown_types = ["ClientMessageType_PerformActionResp",
+                     "ClientMessageType_DeclareAttackersResp"
+                     "ClientMessageType_DeclareBlockersResp",
+                     "ClientMessageType_SetSettingsReq",
+                     "ClientMessageType_SelectNResp",
+                     "ClientMessageType_SelectTargetsResp",
+                     "ClientMessageType_SubmitTargetsReq",
+                     "ClientMessageType_SubmitAttackersReq",
                      "ClientMessageType_ConnectReq"]
     if message_type in dont_care_types:
         pass
@@ -136,7 +159,7 @@ def dispatch_client_to_gre(blob):
         # TODO: log ?
         pass
     else:
-        app.mtga_app.mtga_logger.warning("{}WARNING: unknown clientToGreMessage type: {}".format(util.ld(), message_type))
-
+        app.mtga_app.mtga_logger.warning(
+            "{}WARNING: unknown clientToGreMessage type: {}".format(util.ld(), message_type))
 
 # LOWER LEVEL DISPATCHERS: a message or game object (?)

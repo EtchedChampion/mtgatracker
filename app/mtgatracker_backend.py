@@ -36,6 +36,11 @@ if __name__ == "__main__":
                                           args=(queues.json_blob_queue, queues.json_blob_queue,))
     json_watch_process.start()
 
+    print("starting action task server")
+    action_process = threading.Thread(target=tasks.action_task,
+                                      args=(queues.action_queue, queues.action_queue,))
+    action_process.start()
+
     current_block = ""
 
     count = 0
@@ -45,7 +50,7 @@ if __name__ == "__main__":
             with open(args.log_file) as log_file:
                 kt = KillableTailer(log_file, queues.all_die_queue)
                 kt.seek_end()
-                for line in kt.follow(1):
+                for line in kt.follow(delay=0):  # we don't want any delay because we need to act upon the last message
                     if line and (line.startswith("[UnityCrossThreadLogger]") or line.startswith("[Client GRE]")):
                         # this is the start of a new block (with title), end the last one
                         if "{" in current_block:  # try to speed up debug runs by freeing up json watcher task

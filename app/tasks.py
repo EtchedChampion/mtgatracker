@@ -1,6 +1,10 @@
+import time
+
 import dateutil.parser
 import json
 import app.dispatchers as dispatchers
+from app import action_decider
+from app.models.action import Action
 from app.mtga_app import mtga_watch_app, mtga_logger
 from app.queues import all_die_queue, game_state_change_queue, decklist_change_queue, general_output_queue
 import util
@@ -25,6 +29,30 @@ import util
 ==> Log.Info(530):
 {
 """
+
+
+def action_task(in_queue, out_queue):
+    last_blob = None
+    while all_die_queue.empty():
+        json_received = in_queue.get()
+
+        if json_received is None:
+            out_queue.put(None)
+            break
+
+        if last_blob == json_received:
+            continue  # don't double fire
+        print('action required')
+        print(json_received)
+
+        actions = action_decider.what_to_do(json_received["message_type"], json_received["action_type"])
+
+        print('number of actions to do: {}'.format(len(actions)))
+        for action in actions:
+            print('waiting before task')
+            # wait to make sure the UI is ready with all animations and stuff
+            time.sleep(4)
+            action.perform()
 
 
 def block_watch_task(in_queue, out_queue):
@@ -190,8 +218,6 @@ def json_blob_reader_task(in_queue, out_queue):
             mtga_watch_app.last_blob = json_recieved
             error_count = 0
 
-            hero_library_hash_post = -1
-            opponent_hand_hash_post = -1
             if mtga_watch_app.game:
                 hero_library_hash_post = hash(mtga_watch_app.game.hero.library)
                 hero_hand_hash_post = hash(mtga_watch_app.game.hero.hand)

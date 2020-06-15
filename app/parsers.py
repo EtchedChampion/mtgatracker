@@ -9,7 +9,7 @@ from app.models.action import Action, ActionType
 from app.models.game import Game, Match, Player
 from app.models.set import Zone
 import app.mtga_app
-from app.queues import game_state_change_queue, general_output_queue
+from app.queues import game_state_change_queue, general_output_queue, action_queue
 from app.models.card import Ability
 from mtga import all_mtga_cards
 
@@ -245,21 +245,23 @@ def build_event_texts_from_iid_or_grpid(iid, game, grpid=None):
         return build_card_event_texts(card_or_ability, game)
 
 
-def parse_action_required_message(message, timestamp=None):
-    # wait 1 second to make sure all other messages are already parsed
-    # time.sleep(1)
-
+def parse_prompt_action_required(message):
     import app.mtga_app as mtga_app
     with mtga_app.mtga_watch_app.game_lock:
-        actions = action_decider.what_to_do(message)
+        mtga_app.mtga_watch_app.game.last_prompt_shown = message
+        action_queue.put({
+            "message_type": message["type"],
+            "action_type": "Prompt"
+        })
 
-        print('{} number of actions to do'.format(len(actions)))
-        # perform all actions in order
-        for action in actions:
-            # wait between the actions
-            time.sleep(1)
-            action.perform()
 
+def parse_action_required_message(message):
+    import app.mtga_app as mtga_app
+    with mtga_app.mtga_watch_app.game_lock:
+        action_queue.put({
+            "message_type": message["type"],
+            "action_type": "Action"
+        })
 
 @util.debug_log_trace
 def parse_game_state_message(message, timestamp=None):
@@ -270,17 +272,17 @@ def parse_game_state_message(message, timestamp=None):
             if "turnNumber" in message["turnInfo"].keys():
                 player = app.mtga_app.mtga_watch_app.game.get_player_in_seat(message["turnInfo"]["activePlayer"])
                 if "decisionPlayer" in message["turnInfo"].keys():
-                    decisionPlayer = app.mtga_app.mtga_watch_app.game.get_player_in_seat(
+                    decision_player = app.mtga_app.mtga_watch_app.game.get_player_in_seat(
                         message["turnInfo"]["decisionPlayer"])
                 else:
-                    decisionPlayer = app.mtga_app.mtga_watch_app.game.last_decision_player
+                    decision_player = app.mtga_app.mtga_watch_app.game.last_decision_player
                 if timestamp:
                     now = datetime.datetime.now()
                     if app.mtga_app.mtga_watch_app.game.last_log_timestamp is None:
                         app.mtga_app.mtga_watch_app.game.last_log_timestamp = timestamp
                         app.mtga_app.mtga_watch_app.game.last_measured_timestamp = now
                         app.mtga_app.mtga_watch_app.game.log_start_time = timestamp
-                        app.mtga_app.mtga_watch_app.game.last_decision_player = decisionPlayer
+                        app.mtga_app.mtga_watch_app.game.last_decision_player = decision_player
 
                     measured_time_diff = now - app.mtga_app.mtga_watch_app.game.last_measured_timestamp
                     log_time_diff = timestamp - app.mtga_app.mtga_watch_app.game.last_log_timestamp
@@ -295,8 +297,8 @@ def parse_game_state_message(message, timestamp=None):
                               "countsAgainst": app.mtga_app.mtga_watch_app.game.last_decision_player}
                     app.mtga_app.mtga_watch_app.game.chess_timer.append(ct_obj)
                     general_output_queue.put({"decisionPlayerChange": True,
-                                              "heroIsDeciding": decisionPlayer == app.mtga_app.mtga_watch_app.game.hero})
-                    app.mtga_app.mtga_watch_app.game.last_decision_player = decisionPlayer
+                                              "heroIsDeciding": decision_player == app.mtga_app.mtga_watch_app.game.hero})
+                    app.mtga_app.mtga_watch_app.game.last_decision_player = decision_player
                 app.mtga_app.mtga_watch_app.game.turn_number = message["turnInfo"]["turnNumber"]
                 other_player_seat = 2 if message["turnInfo"]["activePlayer"] == 1 else 1
                 other_player = app.mtga_app.mtga_watch_app.game.get_player_in_seat(other_player_seat)
