@@ -31,25 +31,26 @@ import util
 """
 
 
-def action_task(in_queue, out_queue):
-    last_blob = None
+def action_task():
+    game = mtga_watch_app.game
     while all_die_queue.empty():
-        json_received = in_queue.get()
+        if game is None or game.final:
+            game = mtga_watch_app.game
+            continue
 
-        if json_received is None:
-            out_queue.put(None)
-            break
+        # check every 2 seconds if we need to do anything, if so, do something
+        time.sleep(2)
+        if game.last_decision_player != game.hero:
+            print("other player busy")
+            continue
 
-        if last_blob == json_received:
-            continue  # don't double fire
-        print(json_received)
-
-        actions = action_decider.what_to_do(json_received["message_type"], json_received["action_type"])
+        actions = action_decider.what_to_do(game.last_message_type, game.last_action_type)
         for action in actions:
             print('waiting before task')
             # wait to make sure the UI is ready with all animations and stuff
-            time.sleep(2)
+            time.sleep(3)
             action.perform()
+
 
 # goes from a string, to a list of lines, to json and sends it trough to the json task
 def block_watch_task(in_queue, out_queue):

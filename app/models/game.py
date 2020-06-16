@@ -7,6 +7,7 @@ from app.mtga_app import mtga_watch_app
 from app.models.card import GameCard
 from app.models.set import Deck
 from util import all_mtga_cards
+
 try:
     from app._secrets import API_URL, hash_json_object
 except ImportError:
@@ -125,8 +126,10 @@ class Player(object):
                     original_deck_odds[card.mtga_id]['iid'] = card.game_id
 
             original_deck_odds[card.mtga_id]["count_in_deck"] += 1
-            original_deck_odds[card.mtga_id]["odds_unf"] = 100 * original_deck_odds[card.mtga_id]["count_in_deck"] / len(self.original_deck.cards)
-            original_deck_odds[card.mtga_id]["odds_of_draw"] = "{:.2f}".format(original_deck_odds[card.mtga_id]["odds_unf"])
+            original_deck_odds[card.mtga_id]["odds_unf"] = 100 * original_deck_odds[card.mtga_id][
+                "count_in_deck"] / len(self.original_deck.cards)
+            original_deck_odds[card.mtga_id]["odds_of_draw"] = "{:.2f}".format(
+                original_deck_odds[card.mtga_id]["odds_unf"])
         odds = {}
         for card in current_list:
             if card.mtga_id not in odds.keys():
@@ -257,6 +260,7 @@ class Game(object):
         self.last_hovered_iid = None
 
         self.last_action_type: ActionType = None
+        self.last_message_type = None
 
     def game_state(self):
         hero_chess_time_total, oppo_chess_time_total = self.calculate_chess_timer_total()

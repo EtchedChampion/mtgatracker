@@ -4,7 +4,6 @@ import util
 
 
 # HIGHEST LEVEL DISPATCHERS: any json blob
-from app.queues import action_queue
 
 
 @util.debug_log_trace
@@ -133,12 +132,6 @@ def dispatch_gre_to_client(blob):
                 app.mtga_app.mtga_logger.error(stack)
                 app.mtga_app.mtga_watch_app.send_error("Exception during parse game state. Check log for more details")
 
-    # if no action is done, put a hover action on the que to trigger new messages if we are stuck
-    if not doing_action:
-        action_queue.put({
-            "message_type": None,
-            "action_type": "Hover"
-        })
 
 @util.debug_log_trace
 def dispatch_client_to_gre(blob):

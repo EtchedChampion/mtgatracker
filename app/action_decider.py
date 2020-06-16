@@ -7,12 +7,14 @@ def what_to_do(message_type, action_type) -> [Action]:
 
     game = mtga_watch_app.game
 
+    print("message type: {}, action type: {}".format(message_type, action_type))
+
     # don't do anything if the game is not started yet, or if it has finished
     if game is None or (game is not None and game.final):
         return actions
 
     # Do nothing if we are not to make an action
-    if game.last_decision_player != game.hero:
+    if message_type != "GREMessageType_PromptReq" and game.last_decision_player != game.hero:
         print("opponents turn")
         return actions
 
@@ -36,11 +38,11 @@ def what_to_do(message_type, action_type) -> [Action]:
         # just press left of the middle
         actions.append(Action(ActionType.CLICK, position=(2800, 850)))
 
-    # elif action_type == "Hover" and game.last_action_type != ActionType.FORCE_REFRESH:
-    #     # only doe something if we are not the deciding player and game is not finished
-    #     if game is not None and not game.final:
-    #         # start from the left in the hand section, and go slowly to the right
-    #         actions.append(Action(ActionType.FORCE_REFRESH))
+    elif action_type == "Hover" and game.last_action_type != ActionType.FORCE_REFRESH:
+        # only doe something if we are not the deciding player and game is not finished
+        if game is not None and not game.final:
+            # start from the left in the hand section, and go slowly to the right
+            actions.append(Action(ActionType.FORCE_REFRESH))
 
     # if we are not doing anything, press space
     if len(actions) == 0:

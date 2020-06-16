@@ -37,8 +37,7 @@ if __name__ == "__main__":
     json_watch_process.start()
 
     print("starting action task server")
-    action_process = threading.Thread(target=tasks.action_task,
-                                      args=(queues.action_queue, queues.action_queue,))
+    action_process = threading.Thread(target=tasks.action_task)
     action_process.start()
 
     current_block = ""

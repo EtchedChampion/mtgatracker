@@ -9,7 +9,7 @@ import util
 from app.models.card import Ability
 from app.models.game import Game, Match, Player
 from app.models.set import Zone
-from app.queues import game_state_change_queue, general_output_queue, action_queue
+from app.queues import game_state_change_queue, general_output_queue
 
 
 @util.debug_log_trace
@@ -247,19 +247,15 @@ def parse_prompt_action_required(message):
     import app.mtga_app as mtga_app
     with mtga_app.mtga_watch_app.game_lock:
         mtga_app.mtga_watch_app.game.last_prompt_shown = message
-        action_queue.put({
-            "message_type": message["type"],
-            "action_type": "Prompt"
-        })
+        mtga_app.mtga_watch_app.game.last_message_type = message["type"]
+        mtga_app.mtga_watch_app.game.last_action_type = "Prompt"
 
 
 def parse_action_required_message(message):
     import app.mtga_app as mtga_app
     with mtga_app.mtga_watch_app.game_lock:
-        action_queue.put({
-            "message_type": message["type"],
-            "action_type": "Action"
-        })
+        mtga_app.mtga_watch_app.game.last_message_type = message["type"]
+        mtga_app.mtga_watch_app.game.last_action_type = "Action"
 
 
 @util.debug_log_trace

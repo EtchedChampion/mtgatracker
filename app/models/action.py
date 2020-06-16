@@ -41,12 +41,12 @@ class Action:
 
         elif self.action_type == ActionType.PLAY:
             # start hovering all the cards, until wel find the card that we want and then double click it
-            x_position = 420
-            for x in range(13):
+            x_position = 380
+            for x in range(30):
                 pyautogui.moveTo(x_position, 1050)
-                x_position += 85
+                x_position += 45
                 # wait till the hover position is parsed
-                time.sleep(1)
+                time.sleep(.3)
 
                 if game.last_hovered_iid == self.card.game_id:
                     # we found the card, click and drag into the field
@@ -54,6 +54,10 @@ class Action:
                     pyautogui.moveTo(x_position, 600, duration=.4)
                     pyautogui.click()
                     break
+                # check if the card we wanted to play is in the game now, if not, retry
+                time.sleep(.5)
+                if self.card not in game.battlefield.cards:
+                    self.perform()
 
         game.last_action_type = self.action_type
 
